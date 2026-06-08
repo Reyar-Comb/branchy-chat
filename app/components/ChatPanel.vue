@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { GitBranch, Network, Send, Settings } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
-import { nextTick, ref, watch } from 'vue'
+import { nextTick, onMounted, ref, watch } from 'vue'
 import { useChatStore } from '~/stores/chat'
 
 const chat = useChatStore()
@@ -9,6 +9,7 @@ const { activePath, activeNode, draft, settings, isGenerating, errorMessage } = 
 
 const isComposing = ref(false)
 const lastCompositionEndAt = ref(0)
+const draftInputRef = ref<HTMLTextAreaElement | null>(null)
 
 function handleTextareaKeydown(event: KeyboardEvent) {
   const isIMEEnter =
@@ -36,13 +37,26 @@ function handleCompositionEnd() {
 
 async function scrollToBottom() {
   await nextTick()
-  requestAnimationFrame(() => {
-    window.scrollTo({
-      top: document.documentElement.scrollHeight,
-      behavior: 'auto',
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => {
+      window.scrollTo({
+        top: document.documentElement.scrollHeight,
+        behavior: 'auto',
+      })
+      resolve()
     })
   })
 }
+
+async function focusDraftInput() {
+  await nextTick()
+  draftInputRef.value?.focus({ preventScroll: true })
+}
+
+onMounted(async () => {
+  await scrollToBottom()
+  await focusDraftInput()
+})
 
 watch(
   () => [
@@ -152,6 +166,7 @@ watch(
         @submit.prevent="chat.sendDraft"
       >
         <textarea
+          ref="draftInputRef"
           v-model="draft"
           class="field min-h-12 flex-1 resize-none rounded-md px-3 py-3 text-sm outline-none"
           placeholder="继续当前主线..."

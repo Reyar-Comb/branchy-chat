@@ -47,7 +47,7 @@ const flowEdges = computed<Edge[]>(() =>
       target: node.id,
       sourceHandle: 'right',
       targetHandle: 'left',
-      type: 'smoothstep',
+      type: 'bezier',
       animated: node.id === chat.activeNodeId,
       style: {
         stroke: node.id === chat.activeNodeId ? 'var(--graph-edge-active)' : 'var(--graph-edge)',
