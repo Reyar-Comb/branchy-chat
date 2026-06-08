@@ -59,25 +59,23 @@ watch(
 </script>
 
 <template>
-  <main class="min-h-screen bg-[#f6f3ed] text-[#202124]">
-    <header
-      class="flex h-14 items-center justify-between border-b border-[#d8d1c5] bg-[#fbfaf7] px-4"
-    >
+  <main class="app-shell">
+    <header class="app-header">
       <div class="flex items-center gap-2">
-        <GitBranch class="size-5 text-[#3c6e71]" />
+        <GitBranch class="accent-text size-5" />
         <h1 class="text-base font-semibold">Branchy Chat</h1>
       </div>
 
       <div class="flex items-center gap-2">
         <button
-          class="inline-flex size-9 items-center justify-center rounded-md border border-[#d8d1c5] bg-white text-[#3c4043] hover:bg-[#eef6f4]"
+          class="icon-button inline-flex size-9 items-center justify-center"
           title="设置"
           type="button"
         >
           <Settings class="size-4" />
         </button>
         <button
-          class="inline-flex items-center gap-2 rounded-md bg-[#2f5d62] px-3 py-2 text-sm font-medium text-white hover:bg-[#244b50]"
+          class="primary-button inline-flex items-center gap-2 px-3 py-2 text-sm"
           type="button"
           @click="chat.setMode('graph')"
         >
@@ -90,34 +88,34 @@ watch(
     <section class="mx-auto flex w-full max-w-4xl flex-col px-4 py-6">
       <div class="mb-4 flex items-center justify-between gap-4">
         <div>
-          <p class="text-xs font-medium uppercase tracking-wide text-[#6b6f72]">
+          <p class="muted-text text-xs font-medium uppercase tracking-wide">
             当前主线
           </p>
           <h2 class="mt-1 text-xl font-semibold">
             {{ activeNode?.userText || '新对话' }}
           </h2>
         </div>
-        <div class="rounded-md border border-[#d8d1c5] bg-white px-3 py-2 text-xs text-[#5f6368]">
+        <div class="panel muted-text rounded-md px-3 py-2 text-xs">
           {{ settings.model || '未设置模型' }}
         </div>
       </div>
 
-      <div class="mb-4 grid gap-2 rounded-md border border-[#d8d1c5] bg-white p-3 md:grid-cols-[1.5fr_1.2fr_1fr]">
+      <div class="panel mb-4 grid gap-2 rounded-lg p-3 md:grid-cols-[1.5fr_1.2fr_1fr]">
         <input
           v-model="settings.baseURL"
-          class="rounded-md border border-[#c9c0b4] px-3 py-2 text-sm outline-none focus:border-[#2f5d62]"
+          class="field rounded-md px-3 py-2 text-sm outline-none"
           placeholder="Base URL，例如 https://api.openai.com/v1"
           type="url"
         />
         <input
           v-model="settings.apiKey"
-          class="rounded-md border border-[#c9c0b4] px-3 py-2 text-sm outline-none focus:border-[#2f5d62]"
+          class="field rounded-md px-3 py-2 text-sm outline-none"
           placeholder="API Key"
           type="password"
         />
         <input
           v-model="settings.model"
-          class="rounded-md border border-[#c9c0b4] px-3 py-2 text-sm outline-none focus:border-[#2f5d62]"
+          class="field rounded-md px-3 py-2 text-sm outline-none"
           placeholder="模型名"
           type="text"
         />
@@ -125,7 +123,7 @@ watch(
 
       <p
         v-if="errorMessage"
-        class="mb-4 rounded-md border border-[#f1b7b7] bg-[#fff3f2] px-3 py-2 text-sm text-[#9f2d2d]"
+        class="error-panel mb-4 rounded-md px-3 py-2 text-sm"
       >
         {{ errorMessage }}
       </p>
@@ -134,14 +132,14 @@ watch(
         <article
           v-for="node in activePath"
           :key="node.id"
-          class="rounded-md border border-[#d8d1c5] bg-white"
+          class="chat-card"
         >
-          <div class="border-b border-[#ece7df] px-4 py-3">
-            <div class="mb-1 text-xs text-[#6b6f72]">{{ node.createdAt }}</div>
+          <div class="chat-card-user px-4 py-3">
+            <div class="muted-text mb-1 text-xs">{{ node.createdAt }}</div>
             <p class="whitespace-pre-wrap text-sm leading-6">{{ node.userText }}</p>
           </div>
           <div class="px-4 py-3">
-            <p class="whitespace-pre-wrap text-sm leading-6 text-[#2f3437]">
+            <p class="whitespace-pre-wrap text-sm leading-6">
               {{ node.assistantText }}
             </p>
           </div>
@@ -149,12 +147,13 @@ watch(
       </div>
 
       <form
-        class="sticky bottom-0 mt-6 flex gap-2 border-t border-[#d8d1c5] bg-[#f6f3ed] py-4"
+        class="sticky bottom-0 mt-6 flex gap-2 border-t py-4"
+        style="border-color: var(--color-border); background: var(--color-bg)"
         @submit.prevent="chat.sendDraft"
       >
         <textarea
           v-model="draft"
-          class="min-h-12 flex-1 resize-none rounded-md border border-[#c9c0b4] bg-white px-3 py-3 text-sm outline-none focus:border-[#2f5d62]"
+          class="field min-h-12 flex-1 resize-none rounded-md px-3 py-3 text-sm outline-none"
           placeholder="继续当前主线..."
           rows="2"
           @compositionend="handleCompositionEnd"
@@ -163,7 +162,7 @@ watch(
         />
         <button
           :disabled="isGenerating"
-          class="inline-flex size-12 shrink-0 items-center justify-center rounded-md bg-[#2f5d62] text-white hover:bg-[#244b50]"
+          class="primary-button inline-flex size-12 shrink-0 items-center justify-center"
           :class="isGenerating ? 'cursor-not-allowed opacity-60' : ''"
           title="发送"
           type="submit"

@@ -12,6 +12,7 @@ export type ChatNode = {
     x: number
     y: number
   }
+  includeInContext?: boolean
 }
 
 type ProviderSettings = {
@@ -24,9 +25,10 @@ const seedNodes: ChatNode[] = [
   {
     id: 'root',
     parentId: null,
-    userText: '你好',
-    assistantText: '你好，有什么可以帮助你',
+    userText: '欢迎来到Branchy Chat',
+    assistantText: '这是一个基于类git的分支式AI聊天工具。利用Control + . 切换到节点图模式来查看更多！\n输入base URL和API key开始你的对话！',
     createdAt: '20:30',
+    includeInContext: false,
   }
 ]
 
@@ -136,7 +138,9 @@ export const useChatStore = defineStore('chat', {
       this.isGenerating = true
 
       try {
-        const messages = this.activePath.flatMap((node) => {
+        const messages = this.activePath
+          .filter((node) => node.includeInContext !== false)
+          .flatMap((node) => {
           const items = [{ role: 'user' as const, content: node.userText }]
 
           if (node.assistantText.trim()) {

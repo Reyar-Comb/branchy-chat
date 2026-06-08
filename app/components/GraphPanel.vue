@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { VueFlow, type Edge, type Node } from '@vue-flow/core'
+import { Handle, Position, VueFlow, type Edge, type Node } from '@vue-flow/core'
 import { MessageSquare, PanelRightClose, RotateCcw } from 'lucide-vue-next'
 import { useChatStore, type ChatNode } from '~/stores/chat'
 
@@ -27,6 +27,8 @@ const flowNodes = computed<Node[]>(() => {
       id: chatNode.id,
       type: 'chatNode',
       position,
+      sourcePosition: Position.Right,
+      targetPosition: Position.Left,
       data: {
         title: chatNode.userText,
         answer: chatNode.assistantText,
@@ -43,7 +45,14 @@ const flowEdges = computed<Edge[]>(() =>
       id: `${node.parentId}-${node.id}`,
       source: node.parentId!,
       target: node.id,
+      sourceHandle: 'right',
+      targetHandle: 'left',
+      type: 'smoothstep',
       animated: node.id === chat.activeNodeId,
+      style: {
+        stroke: node.id === chat.activeNodeId ? 'var(--graph-edge-active)' : 'var(--graph-edge)',
+        strokeWidth: node.id === chat.activeNodeId ? 4 : 3,
+      },
     })),
 )
 
@@ -103,36 +112,36 @@ function handleNodeContextMenu(event: { event: MouseEvent; node: Node }) {
 </script>
 
 <template>
-  <main class="h-screen bg-[#f6f3ed] text-[#202124]">
-    <header
-      class="flex h-14 items-center justify-between border-b border-[#d8d1c5] bg-[#fbfaf7] px-4"
-    >
+  <main class="app-shell h-screen">
+    <header class="app-header">
       <div class="flex items-center gap-2">
-        <MessageSquare class="size-5 text-[#3c6e71]" />
+        <MessageSquare class="accent-text size-5" />
         <h1 class="text-base font-semibold">对话图</h1>
-        <span class="text-sm text-[#6b6f72]">左键回到节点后继续说话会自动分支，右键删除节点及后续分支</span>
+        <span class="muted-text text-sm">左键回到节点后继续说话会自动分支，右键删除节点及后续分支</span>
       </div>
 
-      <button
-        class="inline-flex items-center gap-2 rounded-md bg-[#2f5d62] px-3 py-2 text-sm font-medium text-white hover:bg-[#244b50]"
-        type="button"
-        @click="chat.setMode('chat')"
-      >
-        <PanelRightClose class="size-4" />
-        聊天模式
-      </button>
-      <button
-        class="inline-flex items-center gap-2 rounded-md border border-[#d8d1c5] bg-white px-3 py-2 text-sm font-medium text-[#3c4043] hover:bg-[#eef6f4]"
-        type="button"
-        @click="chat.resetNodePositions"
-      >
-        <RotateCcw class="size-4" />
-        重新布局
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          class="primary-button inline-flex items-center gap-2 px-3 py-2 text-sm"
+          type="button"
+          @click="chat.setMode('chat')"
+        >
+          <PanelRightClose class="size-4" />
+          聊天模式
+        </button>
+        <button
+          class="secondary-button inline-flex items-center gap-2 px-3 py-2 text-sm"
+          type="button"
+          @click="chat.resetNodePositions"
+        >
+          <RotateCcw class="size-4" />
+          重新布局
+        </button>
+      </div>
     </header>
 
     <VueFlow
-      class="h-[calc(100vh-3.5rem)]"
+      class="branchy-flow h-[calc(100vh-3.5rem)]"
       :nodes="flowNodes"
       :edges="flowEdges"
       fit-view-on-init
@@ -142,11 +151,23 @@ function handleNodeContextMenu(event: { event: MouseEvent; node: Node }) {
     >
       <template #node-chatNode="{ data }">
         <div
-          class="w-60 rounded-md border bg-white p-3 shadow-sm"
-          :class="data.active ? 'border-[#2f5d62] ring-2 ring-[#2f5d62]/20' : 'border-[#d8d1c5]'"
+          class="graph-node relative p-3"
+          :class="data.active ? 'graph-node-active' : ''"
         >
+          <Handle
+            id="left"
+            type="target"
+            :position="Position.Left"
+            class="opacity-0"
+          />
+          <Handle
+            id="right"
+            type="source"
+            :position="Position.Right"
+            class="opacity-0"
+          />
           <p class="line-clamp-2 text-sm font-medium leading-5">{{ data.title }}</p>
-          <p class="mt-2 line-clamp-2 text-xs leading-5 text-[#6b6f72]">
+          <p class="muted-text mt-2 line-clamp-2 text-xs leading-5">
             {{ data.answer }}
           </p>
         </div>
