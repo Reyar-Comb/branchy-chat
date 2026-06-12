@@ -5,7 +5,15 @@ import { nextTick, onMounted, ref, watch } from 'vue'
 import { useChatStore } from '~/stores/chat'
 
 const chat = useChatStore()
-const { activePath, activeNode, draft, settings, isGenerating, errorMessage } = storeToRefs(chat)
+const {
+  activePath,
+  activeNode,
+  draft,
+  settings,
+  isGenerating,
+  errorMessage,
+  hasConfiguredApiKey,
+} = storeToRefs(chat)
 
 const isComposing = ref(false)
 const lastCompositionEndAt = ref(0)
@@ -54,6 +62,7 @@ async function focusDraftInput() {
 }
 
 onMounted(async () => {
+  await chat.loadProviderDefaults()
   await scrollToBottom()
   await focusDraftInput()
 })
@@ -124,7 +133,7 @@ watch(
         <input
           v-model="settings.apiKey"
           class="field rounded-md px-3 py-2 text-sm outline-none"
-          placeholder="API Key"
+          :placeholder="hasConfiguredApiKey ? 'API Key（config.toml 已配置，可留空）' : 'API Key'"
           type="password"
         />
         <input

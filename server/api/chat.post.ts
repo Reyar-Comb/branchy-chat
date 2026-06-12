@@ -1,5 +1,6 @@
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { streamText, type ModelMessage } from 'ai'
+import { getProviderConfig } from '../utils/provider-config'
 
 type ChatRole = 'system' | 'user' | 'assistant'
 
@@ -124,10 +125,11 @@ function logAIRequest(label: string, payload: unknown) {
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<ChatRequestBody>(event)
+  const config = getProviderConfig()
 
-  const baseURL = normalizeBaseURL(assertString(body.settings?.baseURL, 'baseURL'))
-  const apiKey = assertString(body.settings?.apiKey, 'apiKey')
-  const model = assertString(body.settings?.model, 'model')
+  const baseURL = normalizeBaseURL(assertString(body.settings?.baseURL || config.baseURL, 'baseURL'))
+  const apiKey = assertString(body.settings?.apiKey || config.apiKey, 'apiKey')
+  const model = assertString(body.settings?.model || config.model, 'model')
   const messages = normalizeMessages(body.messages)
 
   logAIRequest('incoming request body', {

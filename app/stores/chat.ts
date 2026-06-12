@@ -21,6 +21,12 @@ type ProviderSettings = {
   model: string
 }
 
+type ProviderConfigResponse = {
+  baseURL: string
+  model: string
+  hasApiKey: boolean
+}
+
 const seedNodes: ChatNode[] = [
   {
     id: 'root',
@@ -47,10 +53,11 @@ export const useChatStore = defineStore('chat', {
     draft: '',
     isGenerating: false,
     errorMessage: '',
+    hasConfiguredApiKey: false,
     settings: {
-      baseURL: 'http://localhost:4141/',
-      apiKey: '123',
-      model: 'gpt-5-mini',
+      baseURL: '',
+      apiKey: '',
+      model: '',
     } satisfies ProviderSettings,
     nodes: seedNodes,
   }),
@@ -116,6 +123,19 @@ export const useChatStore = defineStore('chat', {
         delete node.position
       }
     },
+    async loadProviderDefaults() {
+      const config = await $fetch<ProviderConfigResponse>('/api/config')
+
+      if (!this.settings.baseURL) {
+        this.settings.baseURL = config.baseURL
+      }
+
+      if (!this.settings.model) {
+        this.settings.model = config.model
+      }
+
+      this.hasConfiguredApiKey = config.hasApiKey
+    },
     async sendDraft() {
       const text = this.draft.trim()
       if (!text || this.isGenerating) return
@@ -141,14 +161,14 @@ export const useChatStore = defineStore('chat', {
         const messages = this.activePath
           .filter((node) => node.includeInContext !== false)
           .flatMap((node) => {
-          const items = [{ role: 'user' as const, content: node.userText }]
+            const items = [{ role: 'user' as const, content: node.userText }]
 
-          if (node.assistantText.trim()) {
-            items.push({ role: 'assistant' as const, content: node.assistantText })
-          }
+            if (node.assistantText.trim()) {
+              items.push({ role: 'assistant' as const, content: node.assistantText })
+            }
 
-          return items
-        })
+            return items
+          })
 
         const response = await fetch('/api/chat', {
           method: 'POST',
