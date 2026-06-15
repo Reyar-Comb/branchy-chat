@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  AlertTriangle,
   GitBranch,
   Monitor,
   Moon,
@@ -22,6 +23,7 @@ const {
   settings,
   isGenerating,
   errorMessage,
+  errorDialog,
   themeMode,
   providerMode,
 } = storeToRefs(chat)
@@ -32,6 +34,7 @@ const draftInputRef = ref<HTMLTextAreaElement | null>(null)
 const shouldFollowOutput = ref(true)
 const settingsOpen = ref(false)
 const BOTTOM_THRESHOLD = 96
+let errorToastTimer: ReturnType<typeof window.setTimeout> | null = null
 
 const themeOptions = [
   { value: 'system' as const, label: '跟随系统', icon: Monitor },
@@ -108,6 +111,18 @@ function closeSettings() {
   settingsOpen.value = false
 }
 
+function clearErrorToastTimer() {
+  if (!errorToastTimer) return
+
+  window.clearTimeout(errorToastTimer)
+  errorToastTimer = null
+}
+
+function dismissErrorToast() {
+  clearErrorToastTimer()
+  chat.clearErrorDialog()
+}
+
 function handleCompositionStart() {
   isComposing.value = true
 }
@@ -152,6 +167,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resizeDraftInput)
   window.removeEventListener('scroll', handlePageScroll)
+  clearErrorToastTimer()
 })
 
 watch(
@@ -186,6 +202,19 @@ watch(
     scrollToBottom()
   },
   { flush: 'post' },
+)
+
+watch(
+  () => errorDialog.value,
+  (dialog) => {
+    clearErrorToastTimer()
+    if (!dialog) return
+
+    errorToastTimer = window.setTimeout(() => {
+      chat.clearErrorDialog()
+      errorToastTimer = null
+    }, 4800)
+  },
 )
 </script>
 
@@ -269,7 +298,7 @@ watch(
                   />
                   <span>
                     <strong>使用自定义 API</strong>
-                    <small>启用下面的 Base URL、API Key 和模型名</small>
+                    <small>使用服务器中转请求，绝对不会偷偷记下你的key的喵～</small>
                   </span>
                 </label>
               </div>
@@ -326,6 +355,33 @@ watch(
             </div>
           </section>
         </div>
+      </section>
+    </div>
+
+    <div
+      v-if="errorDialog"
+      class="error-toast-region"
+    >
+      <section
+        class="error-toast"
+        role="alert"
+      >
+        <AlertTriangle class="error-toast-icon size-5" />
+        <div class="min-w-0 flex-1">
+          <h2 class="text-sm font-semibold">{{ errorDialog.title }}</h2>
+          <p class="error-toast-message mt-1 whitespace-pre-wrap text-sm leading-5">
+            {{ errorDialog.message }}
+          </p>
+          <p class="muted-text mt-1 text-xs">刚才这条消息没有加入对话树</p>
+        </div>
+        <button
+          class="error-toast-close inline-flex size-8 shrink-0 items-center justify-center"
+          title="关闭"
+          type="button"
+          @click="dismissErrorToast"
+        >
+          <X class="size-4" />
+        </button>
       </section>
     </div>
 

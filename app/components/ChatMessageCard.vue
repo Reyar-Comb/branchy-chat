@@ -73,7 +73,19 @@ onBeforeUnmount(() => {
       <p class="whitespace-pre-wrap text-sm leading-6">{{ node.userText }}</p>
     </div>
     <div class="px-4 py-3">
+      <div
+        v-if="streaming && !node.assistantText"
+        class="thinking-indicator"
+      >
+        <span>请求中</span>
+        <span class="thinking-dots" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </span>
+      </div>
       <MarkdownContent
+        v-else
         :content="node.assistantText"
         :streaming="streaming"
       />

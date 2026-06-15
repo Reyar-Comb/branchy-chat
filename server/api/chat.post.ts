@@ -21,6 +21,7 @@ type ChatRequestBody = {
 const MAX_MESSAGES = 60
 const MAX_MESSAGE_CHARS = 12000
 const SHOULD_LOG_AI_REQUESTS = process.env.NODE_ENV !== 'production'
+const STREAM_ERROR_MARKER = '[[BRANCHY_CHAT_STREAM_ERROR]]'
 
 function normalizeBaseURL(baseURL: string) {
   return baseURL.trim().replace(/\/+$/, '')
@@ -123,6 +124,86 @@ function logAIRequest(label: string, payload: unknown) {
   })
 }
 
+function extractErrorMessage(payload: unknown): string | null {
+  if (typeof payload === 'string') {
+    const value = payload.trim()
+    if (!value) return null
+
+    try {
+      return extractErrorMessage(JSON.parse(value)) ?? value
+    } catch {
+      return value
+    }
+  }
+
+  if (!payload || typeof payload !== 'object') return null
+
+  const record = payload as Record<string, unknown>
+  const candidates = [
+    record.statusMessage,
+    record.message,
+    record.error,
+    record.cause,
+    record.responseBody,
+    record.body,
+    typeof record.data === 'object' && record.data
+      ? (record.data as Record<string, unknown>).message
+      : null,
+  ]
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim()
+    }
+
+    if (candidate && typeof candidate === 'object') {
+      const nestedMessage = extractErrorMessage(candidate)
+      if (nestedMessage) return nestedMessage
+    }
+  }
+
+  return null
+}
+
+function extractErrorStatus(payload: unknown): number | null {
+  if (typeof payload === 'string') {
+    try {
+      return extractErrorStatus(JSON.parse(payload))
+    } catch {
+      return null
+    }
+  }
+
+  if (!payload || typeof payload !== 'object') return null
+
+  const record = payload as Record<string, unknown>
+  const candidates = [record.status, record.statusCode]
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'number' && Number.isInteger(candidate)) {
+      return candidate
+    }
+  }
+
+  for (const candidate of [record.error, record.cause, record.response, record.data]) {
+    const status = extractErrorStatus(candidate)
+    if (status) return status
+  }
+
+  return null
+}
+
+function getStreamErrorPayload(error: unknown) {
+  const fallbackMessage = '模型接口请求失败，请检查 API Key、模型名和 Base URL。'
+  let message = extractErrorMessage(error) ?? (error instanceof Error ? error.message : fallbackMessage)
+  const status = extractErrorStatus(error) ?? 502
+
+  return {
+    message: message.slice(0, 1200),
+    status,
+  }
+}
+
 function createRequestAbortSignal(event: {
   node: {
     req: {
@@ -189,18 +270,54 @@ export default defineEventHandler(async (event) => {
     },
   })
 
+  const abortSignal = createRequestAbortSignal(event)
   const result = streamText({
     model: provider(model),
     system:
       'You are a helpful assistant. Keep answers clear and useful. Reply in the user language unless asked otherwise.',
     messages,
     maxOutputTokens: 4096,
-    abortSignal: createRequestAbortSignal(event),
+    abortSignal,
+    onError() {
+      // Errors are forwarded through the response stream so the UI can show a modal.
+    },
   })
 
-  return result.toTextStreamResponse({
+  const encoder = new TextEncoder()
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const enqueueError = (error: unknown) => {
+        if (abortSignal.aborted) return
+
+        controller.enqueue(
+          encoder.encode(`${STREAM_ERROR_MARKER}${JSON.stringify(getStreamErrorPayload(error))}`),
+        )
+      }
+
+      try {
+        for await (const part of result.fullStream) {
+          if (part.type === 'text-delta') {
+            controller.enqueue(encoder.encode(part.text))
+          } else if (part.type === 'error') {
+            enqueueError(part.error)
+            break
+          } else if (part.type === 'abort') {
+            break
+          }
+        }
+      } catch (error) {
+        enqueueError(error)
+      } finally {
+        controller.close()
+      }
+    },
+  })
+
+  return new Response(stream, {
     headers: {
       'Cache-Control': 'no-cache',
+      'Content-Type': 'text/plain; charset=utf-8',
     },
   })
 })
