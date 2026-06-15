@@ -1,5 +1,15 @@
 <script setup lang="ts">
-import { GitBranch, Network, Send, Settings, Square } from 'lucide-vue-next'
+import {
+  GitBranch,
+  Monitor,
+  Moon,
+  Network,
+  Send,
+  Settings,
+  Square,
+  Sun,
+  X,
+} from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useChatStore } from '~/stores/chat'
@@ -12,14 +22,22 @@ const {
   settings,
   isGenerating,
   errorMessage,
-  hasConfiguredApiKey,
+  themeMode,
+  providerMode,
 } = storeToRefs(chat)
 
 const isComposing = ref(false)
 const lastCompositionEndAt = ref(0)
 const draftInputRef = ref<HTMLTextAreaElement | null>(null)
 const shouldFollowOutput = ref(true)
+const settingsOpen = ref(false)
 const BOTTOM_THRESHOLD = 96
+
+const themeOptions = [
+  { value: 'system' as const, label: '跟随系统', icon: Monitor },
+  { value: 'light' as const, label: '浅色', icon: Sun },
+  { value: 'dark' as const, label: '深色', icon: Moon },
+]
 
 function resizeDraftInput() {
   const input = draftInputRef.value
@@ -82,6 +100,14 @@ function handleSubmit() {
   chat.sendDraft()
 }
 
+function openSettings() {
+  settingsOpen.value = true
+}
+
+function closeSettings() {
+  settingsOpen.value = false
+}
+
 function handleCompositionStart() {
   isComposing.value = true
 }
@@ -114,6 +140,7 @@ async function focusDraftInput() {
 }
 
 onMounted(async () => {
+  chat.loadUiPreferences()
   await chat.loadProviderDefaults()
   resizeDraftInput()
   window.addEventListener('resize', resizeDraftInput)
@@ -175,6 +202,7 @@ watch(
           class="icon-button inline-flex size-9 items-center justify-center"
           title="设置"
           type="button"
+          @click="openSettings"
         >
           <Settings class="size-4" />
         </button>
@@ -189,6 +217,118 @@ watch(
       </div>
     </header>
 
+    <div
+      v-if="settingsOpen"
+      class="settings-backdrop"
+      role="presentation"
+      @click.self="closeSettings"
+    >
+      <section
+        aria-modal="true"
+        class="settings-dialog"
+        role="dialog"
+      >
+        <div class="flex items-center justify-between gap-4 border-b px-4 py-3" style="border-color: var(--color-border)">
+          <div>
+            <h2 class="text-base font-semibold">设置</h2>
+            <p class="muted-text mt-1 text-xs">模型连接和界面偏好</p>
+          </div>
+          <button
+            class="icon-button inline-flex size-9 items-center justify-center"
+            title="关闭"
+            type="button"
+            @click="closeSettings"
+          >
+            <X class="size-4" />
+          </button>
+        </div>
+
+        <div class="grid gap-5 p-4">
+          <section>
+            <h3 class="mb-3 text-sm font-semibold">模型接口</h3>
+            <div class="grid gap-3">
+              <div class="grid gap-2">
+                <label class="provider-option">
+                  <input
+                    :checked="providerMode === 'server'"
+                    name="provider-mode"
+                    type="radio"
+                    @change="chat.setProviderMode('server')"
+                  />
+                  <span>
+                    <strong>使用服务器 API</strong>
+                    <small>一天只能请求30次喵，不要乱花我的钱555</small>
+                  </span>
+                </label>
+                <label class="provider-option">
+                  <input
+                    :checked="providerMode === 'custom'"
+                    name="provider-mode"
+                    type="radio"
+                    @change="chat.setProviderMode('custom')"
+                  />
+                  <span>
+                    <strong>使用自定义 API</strong>
+                    <small>启用下面的 Base URL、API Key 和模型名</small>
+                  </span>
+                </label>
+              </div>
+              <label class="grid gap-1">
+                <span class="muted-text text-xs font-medium">Base URL</span>
+                <input
+                  v-model="settings.baseURL"
+                  class="field rounded-md px-3 py-2 text-sm outline-none"
+                  :disabled="providerMode !== 'custom'"
+                  placeholder="例如 https://api.openai.com/v1"
+                  type="url"
+                />
+              </label>
+              <label class="grid gap-1">
+                <span class="muted-text text-xs font-medium">API Key</span>
+                <input
+                  v-model="settings.apiKey"
+                  class="field rounded-md px-3 py-2 text-sm outline-none"
+                  :disabled="providerMode !== 'custom'"
+                  placeholder="输入 API Key"
+                  type="password"
+                />
+              </label>
+              <label class="grid gap-1">
+                <span class="muted-text text-xs font-medium">模型名</span>
+                <input
+                  v-model="settings.model"
+                  class="field rounded-md px-3 py-2 text-sm outline-none"
+                  :disabled="providerMode !== 'custom'"
+                  placeholder="例如 gpt-4.1-mini"
+                  type="text"
+                />
+              </label>
+            </div>
+          </section>
+
+          <section>
+            <h3 class="mb-3 text-sm font-semibold">主题</h3>
+            <div class="theme-segmented">
+              <button
+                v-for="option in themeOptions"
+                :key="option.value"
+                class="theme-option"
+                :class="themeMode === option.value ? 'theme-option-active' : ''"
+                type="button"
+                @click="chat.setThemeMode(option.value)"
+              >
+                <component
+                  :is="option.icon"
+                  class="size-4"
+                />
+                <span>{{ option.label }}</span>
+              </button>
+            </div>
+          </section>
+        </div>
+      </section>
+    </div>
+
     <section class="mx-auto flex w-full max-w-4xl flex-col px-4 py-6">
       <div class="mb-4 flex items-center justify-between gap-4">
         <div>
@@ -200,29 +340,8 @@ watch(
           </h2>
         </div>
         <div class="panel muted-text rounded-md px-3 py-2 text-xs">
-          {{ settings.model || '未设置模型' }}
+          {{ providerMode === 'server' ? '服务器 API' : settings.model || '未设置模型' }}
         </div>
-      </div>
-
-      <div class="panel mb-4 grid gap-2 rounded-lg p-3 md:grid-cols-[1.5fr_1.2fr_1fr]">
-        <input
-          v-model="settings.baseURL"
-          class="field rounded-md px-3 py-2 text-sm outline-none"
-          placeholder="Base URL，例如 https://api.openai.com/v1"
-          type="url"
-        />
-        <input
-          v-model="settings.apiKey"
-          class="field rounded-md px-3 py-2 text-sm outline-none"
-          :placeholder="hasConfiguredApiKey ? 'API Key（config.toml 已配置，可留空）' : 'API Key'"
-          type="password"
-        />
-        <input
-          v-model="settings.model"
-          class="field rounded-md px-3 py-2 text-sm outline-none"
-          placeholder="模型名"
-          type="text"
-        />
       </div>
 
       <p

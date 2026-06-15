@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 
 export type ViewMode = 'chat' | 'graph'
+export type ThemeMode = 'system' | 'light' | 'dark'
+export type ProviderMode = 'server' | 'custom'
 
 export type ChatNodeStatus = 'complete' | 'streaming' | 'stopped'
 
@@ -30,7 +32,20 @@ type ProviderConfigResponse = {
   hasApiKey: boolean
 }
 
+const THEME_STORAGE_KEY = 'branchy-chat-theme'
+const PROVIDER_MODE_STORAGE_KEY = 'branchy-chat-provider-mode'
 let activeAbortController: AbortController | null = null
+
+function applyDocumentTheme(themeMode: ThemeMode) {
+  if (typeof document === 'undefined') return
+
+  if (themeMode === 'system') {
+    document.documentElement.removeAttribute('data-theme')
+    return
+  }
+
+  document.documentElement.dataset.theme = themeMode
+}
 
 function isAbortError(error: unknown) {
   return (
@@ -67,6 +82,8 @@ export const useChatStore = defineStore('chat', {
     errorMessage: '',
     hasConfiguredApiKey: false,
     pendingGraphFocusNodeId: null as string | null,
+    themeMode: 'system' as ThemeMode,
+    providerMode: 'server' as ProviderMode,
     settings: {
       baseURL: '',
       apiKey: '',
@@ -146,6 +163,39 @@ export const useChatStore = defineStore('chat', {
         delete node.position
       }
     },
+    loadUiPreferences() {
+      if (typeof localStorage === 'undefined') {
+        applyDocumentTheme(this.themeMode)
+        return
+      }
+
+      const storedTheme = localStorage.getItem(THEME_STORAGE_KEY)
+      if (storedTheme === 'system' || storedTheme === 'light' || storedTheme === 'dark') {
+        this.themeMode = storedTheme
+      }
+
+      const storedProviderMode = localStorage.getItem(PROVIDER_MODE_STORAGE_KEY)
+      if (storedProviderMode === 'server' || storedProviderMode === 'custom') {
+        this.providerMode = storedProviderMode
+      }
+
+      applyDocumentTheme(this.themeMode)
+    },
+    setThemeMode(themeMode: ThemeMode) {
+      this.themeMode = themeMode
+      applyDocumentTheme(themeMode)
+
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(THEME_STORAGE_KEY, themeMode)
+      }
+    },
+    setProviderMode(providerMode: ProviderMode) {
+      this.providerMode = providerMode
+
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(PROVIDER_MODE_STORAGE_KEY, providerMode)
+      }
+    },
     async loadProviderDefaults() {
       const config = await $fetch<ProviderConfigResponse>('/api/config')
 
@@ -215,7 +265,7 @@ export const useChatStore = defineStore('chat', {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            settings: this.settings,
+            settings: this.providerMode === 'custom' ? this.settings : {},
             messages,
           }),
           signal: activeAbortController.signal,

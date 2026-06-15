@@ -14,6 +14,7 @@ function handleKeydown(event: KeyboardEvent) {
 }
 
 onMounted(() => {
+  chat.loadUiPreferences()
   window.addEventListener('keydown', handleKeydown)
 })
 
