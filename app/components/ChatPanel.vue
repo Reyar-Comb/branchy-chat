@@ -18,6 +18,8 @@ const {
 const isComposing = ref(false)
 const lastCompositionEndAt = ref(0)
 const draftInputRef = ref<HTMLTextAreaElement | null>(null)
+const shouldFollowOutput = ref(true)
+const BOTTOM_THRESHOLD = 96
 
 function resizeDraftInput() {
   const input = draftInputRef.value
@@ -61,6 +63,16 @@ function handleDraftWheel(event: WheelEvent) {
   }
 }
 
+function isNearPageBottom() {
+  const documentElement = document.documentElement
+
+  return window.scrollY + window.innerHeight >= documentElement.scrollHeight - BOTTOM_THRESHOLD
+}
+
+function handlePageScroll() {
+  shouldFollowOutput.value = isNearPageBottom()
+}
+
 function handleSubmit() {
   if (isGenerating.value) {
     chat.stopGenerating()
@@ -81,7 +93,9 @@ function handleCompositionEnd() {
   }, 0)
 }
 
-async function scrollToBottom() {
+async function scrollToBottom(options: { force?: boolean } = {}) {
+  if (!options.force && !shouldFollowOutput.value) return
+
   await nextTick()
   await new Promise<void>((resolve) => {
     requestAnimationFrame(() => {
@@ -103,12 +117,14 @@ onMounted(async () => {
   await chat.loadProviderDefaults()
   resizeDraftInput()
   window.addEventListener('resize', resizeDraftInput)
-  await scrollToBottom()
+  window.addEventListener('scroll', handlePageScroll, { passive: true })
+  await scrollToBottom({ force: true })
   await focusDraftInput()
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resizeDraftInput)
+  window.removeEventListener('scroll', handlePageScroll)
 })
 
 watch(
@@ -121,12 +137,24 @@ watch(
 )
 
 watch(
-  () => [
-    activePath.value.length,
-    activePath.value.at(-1)?.assistantText,
-    isGenerating.value,
-    errorMessage.value,
-  ],
+  () => activeNode.value?.id,
+  () => {
+    shouldFollowOutput.value = true
+    scrollToBottom({ force: true })
+  },
+  { flush: 'post' },
+)
+
+watch(
+  () => activePath.value.at(-1)?.assistantText,
+  () => {
+    scrollToBottom()
+  },
+  { flush: 'post' },
+)
+
+watch(
+  () => [isGenerating.value, errorMessage.value] as const,
   () => {
     scrollToBottom()
   },
