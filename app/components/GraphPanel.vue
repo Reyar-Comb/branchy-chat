@@ -188,7 +188,7 @@ async function focusPendingNode(instance: {
     >
       <template #node-chatNode="{ data }">
         <div
-          class="graph-node relative p-3"
+          class="graph-node relative flex flex-col p-3"
           :class="data.active ? 'graph-node-active' : ''"
         >
           <Handle
@@ -203,8 +203,8 @@ async function focusPendingNode(instance: {
             :position="Position.Right"
             class="opacity-0"
           />
-          <p class="line-clamp-2 text-sm font-medium leading-5">{{ data.title }}</p>
-          <p class="muted-text mt-2 line-clamp-2 text-xs leading-5">
+          <p class="graph-node-title text-sm font-medium leading-5">{{ data.title }}</p>
+          <p class="graph-node-answer muted-text mt-2 text-xs leading-5">
             {{ data.answer }}
           </p>
         </div>

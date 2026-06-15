@@ -354,11 +354,28 @@ textarea::placeholder {
 
 .graph-node {
   width: 15rem;
+  height: 7.5rem;
   border-radius: 0.75rem;
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   color: var(--color-text);
   box-shadow: var(--shadow-panel);
+}
+
+.graph-node-title,
+.graph-node-answer {
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.graph-node-title {
+  height: 2.5rem;
+  line-height: 1.25rem;
+}
+
+.graph-node-answer {
+  height: 2.5rem;
+  line-height: 1.25rem;
 }
 
 .graph-node-active {
