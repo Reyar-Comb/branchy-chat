@@ -2,12 +2,15 @@ import { defineStore } from 'pinia'
 
 export type ViewMode = 'chat' | 'graph'
 
+export type ChatNodeStatus = 'complete' | 'streaming' | 'stopped'
+
 export type ChatNode = {
   id: string
   parentId: string | null
   userText: string
   assistantText: string
   createdAt: string
+  status?: ChatNodeStatus
   position?: {
     x: number
     y: number
@@ -25,6 +28,15 @@ type ProviderConfigResponse = {
   baseURL: string
   model: string
   hasApiKey: boolean
+}
+
+let activeAbortController: AbortController | null = null
+
+function isAbortError(error: unknown) {
+  return (
+    error instanceof Error &&
+    (error.name === 'AbortError' || error.message.toLowerCase().includes('aborted'))
+  )
 }
 
 const seedNodes: ChatNode[] = [
@@ -54,6 +66,7 @@ export const useChatStore = defineStore('chat', {
     isGenerating: false,
     errorMessage: '',
     hasConfiguredApiKey: false,
+    pendingGraphFocusNodeId: null as string | null,
     settings: {
       baseURL: '',
       apiKey: '',
@@ -84,6 +97,16 @@ export const useChatStore = defineStore('chat', {
     },
     setMode(mode: ViewMode) {
       this.mode = mode
+    },
+    openGraphAtNode(nodeId: string) {
+      this.activeNodeId = nodeId
+      this.pendingGraphFocusNodeId = nodeId
+      this.mode = 'graph'
+    },
+    consumePendingGraphFocusNodeId() {
+      const nodeId = this.pendingGraphFocusNodeId
+      this.pendingGraphFocusNodeId = null
+      return nodeId
     },
     selectNode(nodeId: string) {
       this.activeNodeId = nodeId
@@ -136,26 +159,42 @@ export const useChatStore = defineStore('chat', {
 
       this.hasConfiguredApiKey = config.hasApiKey
     },
+    stopGenerating() {
+      activeAbortController?.abort()
+    },
     async sendDraft() {
       const text = this.draft.trim()
       if (!text || this.isGenerating) return
 
+      this.draft = ''
+      await this.sendMessage(text, this.activeNodeId, {
+        restoreDraftOnError: true,
+      })
+    },
+    async sendMessage(
+      text: string,
+      parentId: string,
+      options: {
+        restoreDraftOnError?: boolean
+      } = {},
+    ) {
       const previousActiveNodeId = this.activeNodeId
       const id = createNodeId()
       this.nodes.push({
         id,
-        parentId: previousActiveNodeId,
+        parentId,
         userText: text,
         assistantText: '',
         createdAt: new Intl.DateTimeFormat('zh-CN', {
           hour: '2-digit',
           minute: '2-digit',
         }).format(new Date()),
+        status: 'streaming',
       })
       this.activeNodeId = id
-      this.draft = ''
       this.errorMessage = ''
       this.isGenerating = true
+      activeAbortController = new AbortController()
 
       try {
         const messages = this.activePath
@@ -179,6 +218,7 @@ export const useChatStore = defineStore('chat', {
             settings: this.settings,
             messages,
           }),
+          signal: activeAbortController.signal,
         })
 
         if (!response.ok || !response.body) {
@@ -202,7 +242,16 @@ export const useChatStore = defineStore('chat', {
           const node = this.nodes.find((item) => item.id === id)
           if (node) node.assistantText += chunk
         }
+
+        const node = this.nodes.find((item) => item.id === id)
+        if (node) node.status = 'complete'
       } catch (error) {
+        if (isAbortError(error)) {
+          const node = this.nodes.find((item) => item.id === id)
+          if (node) node.status = 'stopped'
+          return
+        }
+
         const node = this.nodes.find((item) => item.id === id)
         if (node) {
           node.assistantText = '请求失败，请检查 baseURL、API key 和 model 设置。'
@@ -212,11 +261,12 @@ export const useChatStore = defineStore('chat', {
         if (this.activeNodeId === id) {
           this.activeNodeId = previousActiveNodeId
         }
-        if (!this.draft.trim()) {
+        if (options.restoreDraftOnError && !this.draft.trim()) {
           this.draft = text
         }
       } finally {
         this.isGenerating = false
+        activeAbortController = null
       }
     },
   },

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick } from 'vue'
 import { Handle, Position, VueFlow, type Edge, type Node } from '@vue-flow/core'
 import { MessageSquare, PanelRightClose, RotateCcw } from 'lucide-vue-next'
 import { useChatStore, type ChatNode } from '~/stores/chat'
@@ -109,6 +109,42 @@ function handleNodeContextMenu(event: { event: MouseEvent; node: Node }) {
 
   chat.deleteNodeWithDescendants(nodeId)
 }
+
+async function waitForFrame() {
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve())
+  })
+}
+
+async function focusPendingNode(instance: {
+  fitView: (options?: {
+    nodes?: string[]
+    padding?: number
+    maxZoom?: number
+    duration?: number
+  }) => Promise<boolean>
+}) {
+  const nodeId = chat.pendingGraphFocusNodeId
+  if (!nodeId) return
+
+  await nextTick()
+  await waitForFrame()
+  await instance.fitView({ padding: 0.18, duration: 0 })
+
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const didFocus = await instance.fitView({
+      nodes: [nodeId],
+      padding: 0.65,
+      maxZoom: 1.25,
+      duration: attempt === 0 ? 0 : 220,
+    })
+
+    if (didFocus) break
+    await waitForFrame()
+  }
+
+  chat.consumePendingGraphFocusNodeId()
+}
 </script>
 
 <template>
@@ -148,6 +184,7 @@ function handleNodeContextMenu(event: { event: MouseEvent; node: Node }) {
       @node-click="handleNodeClick"
       @node-context-menu="handleNodeContextMenu" 
       @node-drag-stop="handleNodeDragStop"
+      @pane-ready="focusPendingNode"
     >
       <template #node-chatNode="{ data }">
         <div

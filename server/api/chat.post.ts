@@ -123,6 +123,30 @@ function logAIRequest(label: string, payload: unknown) {
   })
 }
 
+function createRequestAbortSignal(event: {
+  node: {
+    req: {
+      once: (eventName: 'aborted' | 'close', listener: () => void) => void
+    }
+    res: {
+      once: (eventName: 'close', listener: () => void) => void
+    }
+  }
+}) {
+  const controller = new AbortController()
+  const abort = () => {
+    if (!controller.signal.aborted) {
+      controller.abort()
+    }
+  }
+
+  event.node.req.once('aborted', abort)
+  event.node.req.once('close', abort)
+  event.node.res.once('close', abort)
+
+  return controller.signal
+}
+
 export default defineEventHandler(async (event) => {
   const body = await readBody<ChatRequestBody>(event)
   const config = getProviderConfig()
@@ -171,6 +195,7 @@ export default defineEventHandler(async (event) => {
       'You are a helpful assistant. Keep answers clear and useful. Reply in the user language unless asked otherwise.',
     messages,
     maxOutputTokens: 4096,
+    abortSignal: createRequestAbortSignal(event),
   })
 
   return result.toTextStreamResponse({

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { GitBranch, Network, Send, Settings } from 'lucide-vue-next'
+import { GitBranch, Network, Send, Settings, Square } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import { nextTick, onMounted, ref, watch } from 'vue'
 import { useChatStore } from '~/stores/chat'
@@ -29,6 +29,15 @@ function handleTextareaKeydown(event: KeyboardEvent) {
   if (event.key !== 'Enter' || event.shiftKey || isIMEEnter) return
 
   event.preventDefault()
+  chat.sendDraft()
+}
+
+function handleSubmit() {
+  if (isGenerating.value) {
+    chat.stopGenerating()
+    return
+  }
+
   chat.sendDraft()
 }
 
@@ -152,28 +161,19 @@ watch(
       </p>
 
       <div class="space-y-4">
-        <article
+        <ChatMessageCard
           v-for="node in activePath"
           :key="node.id"
-          class="chat-card"
-        >
-          <div class="chat-card-user px-4 py-3">
-            <div class="muted-text mb-1 text-xs">{{ node.createdAt }}</div>
-            <p class="whitespace-pre-wrap text-sm leading-6">{{ node.userText }}</p>
-          </div>
-          <div class="px-4 py-3">
-            <MarkdownContent
-              :content="node.assistantText"
-              :streaming="isGenerating && node.id === activeNode?.id"
-            />
-          </div>
-        </article>
+          :node="node"
+          :streaming="isGenerating && node.id === activeNode?.id"
+          @focus-graph="chat.openGraphAtNode"
+        />
       </div>
 
       <form
         class="sticky bottom-0 mt-6 flex gap-2 border-t py-4"
         style="border-color: var(--color-border); background: var(--color-bg)"
-        @submit.prevent="chat.sendDraft"
+        @submit.prevent="handleSubmit"
       >
         <textarea
           ref="draftInputRef"
@@ -186,13 +186,18 @@ watch(
           @keydown="handleTextareaKeydown"
         />
         <button
-          :disabled="isGenerating"
           class="primary-button inline-flex size-12 shrink-0 items-center justify-center"
-          :class="isGenerating ? 'cursor-not-allowed opacity-60' : ''"
-          title="发送"
+          :title="isGenerating ? '停止' : '发送'"
           type="submit"
         >
-          <Send class="size-5" />
+          <Square
+            v-if="isGenerating"
+            class="size-5"
+          />
+          <Send
+            v-else
+            class="size-5"
+          />
         </button>
       </form>
     </section>
