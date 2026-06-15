@@ -266,6 +266,31 @@ textarea::placeholder {
   white-space: pre;
 }
 
+.markdown-body .katex,
+.markdown-body .katex-display {
+  color: var(--color-text);
+}
+
+.markdown-body .katex-display,
+.markdown-body .katex-block {
+  margin: 0.85rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.15rem 0;
+}
+
+.markdown-body .katex-display > .katex {
+  white-space: nowrap;
+}
+
+.markdown-body .katex-block {
+  max-width: 100%;
+}
+
+.markdown-body .katex-error {
+  color: var(--color-danger);
+}
+
 .markdown-body table {
   display: block;
   width: 100%;

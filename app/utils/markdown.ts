@@ -1,4 +1,5 @@
 import MarkdownIt from 'markdown-it'
+import { katex } from '@mdit/plugin-katex'
 
 export type MarkdownRenderOptions = {
   enableMath?: boolean
@@ -6,6 +7,7 @@ export type MarkdownRenderOptions = {
 }
 
 let baseRenderer: MarkdownIt | null = null
+let mathRenderer: MarkdownIt | null = null
 
 function createBaseRenderer() {
   const renderer = new MarkdownIt({
@@ -36,11 +38,24 @@ function createBaseRenderer() {
   return renderer
 }
 
+function createMathRenderer() {
+  const renderer = createBaseRenderer()
+
+  renderer.use(katex, {
+    delimiters: 'all',
+    mathFence: true,
+    throwOnError: false,
+    trust: false,
+    logger: (errorCode) => (errorCode === 'newLineInDisplayMode' ? 'ignore' : 'warn'),
+  })
+
+  return renderer
+}
+
 export function createMarkdownRenderer(options: MarkdownRenderOptions = {}) {
   if (options.enableMath) {
-    // TODO: Add markdown-it math plugin here, likely markdown-it-katex.
-    // Keep this as a factory so chat components do not need to change when
-    // LaTeX rendering is introduced.
+    mathRenderer ??= createMathRenderer()
+    return mathRenderer
   }
 
   baseRenderer ??= createBaseRenderer()
@@ -52,6 +67,14 @@ function hasUnclosedFence(content: string) {
   return Boolean(fenceMatches && fenceMatches.length % 2 === 1)
 }
 
+function hasOddDelimiterCount(content: string, delimiter: string) {
+  return content.split(delimiter).length % 2 === 0
+}
+
+function countDelimiter(content: string, delimiter: string) {
+  return content.split(delimiter).length - 1
+}
+
 export function normalizeStreamingMarkdown(content: string, options: MarkdownRenderOptions = {}) {
   if (!options.streaming) return content
 
@@ -61,8 +84,19 @@ export function normalizeStreamingMarkdown(content: string, options: MarkdownRen
     normalized += '\n```'
   }
 
-  // TODO: When LaTeX rendering is enabled, normalize unfinished inline/block
-  // math delimiters here so streaming output does not throw or jump heavily.
+  if (options.enableMath) {
+    if (hasOddDelimiterCount(normalized, '$$')) {
+      normalized += '\n$$'
+    }
+
+    if (countDelimiter(normalized, '\\[') > countDelimiter(normalized, '\\]')) {
+      normalized += '\n\\]'
+    }
+
+    if (countDelimiter(normalized, '\\(') > countDelimiter(normalized, '\\)')) {
+      normalized += '\\)'
+    }
+  }
 
   return normalized
 }

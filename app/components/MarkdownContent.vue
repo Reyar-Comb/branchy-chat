@@ -18,7 +18,7 @@ let frameId: number | null = null
 function updateHtml() {
   html.value = renderMarkdown(props.content, {
     streaming: props.streaming,
-    enableMath: false,
+    enableMath: true,
   })
 }
 
