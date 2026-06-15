@@ -107,6 +107,12 @@ textarea::placeholder {
   border-color: var(--color-accent);
 }
 
+.draft-input {
+  max-height: 50vh;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
 .icon-button,
 .secondary-button,
 .primary-button {

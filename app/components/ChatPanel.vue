@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { GitBranch, Network, Send, Settings, Square } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
-import { nextTick, onMounted, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useChatStore } from '~/stores/chat'
 
 const chat = useChatStore()
@@ -19,6 +19,16 @@ const isComposing = ref(false)
 const lastCompositionEndAt = ref(0)
 const draftInputRef = ref<HTMLTextAreaElement | null>(null)
 
+function resizeDraftInput() {
+  const input = draftInputRef.value
+  if (!input) return
+
+  const maxHeight = Math.floor(window.innerHeight * 0.5)
+  input.style.height = 'auto'
+  input.style.height = `${Math.min(input.scrollHeight, maxHeight)}px`
+  input.style.overflowY = input.scrollHeight > maxHeight ? 'auto' : 'hidden'
+}
+
 function handleTextareaKeydown(event: KeyboardEvent) {
   const isIMEEnter =
     isComposing.value ||
@@ -30,6 +40,25 @@ function handleTextareaKeydown(event: KeyboardEvent) {
 
   event.preventDefault()
   chat.sendDraft()
+}
+
+function handleDraftWheel(event: WheelEvent) {
+  const input = event.currentTarget as HTMLTextAreaElement
+  const canScroll = input.scrollHeight > input.clientHeight + 1
+
+  event.stopPropagation()
+
+  if (!canScroll) {
+    event.preventDefault()
+    return
+  }
+
+  const atTop = input.scrollTop <= 0
+  const atBottom = input.scrollTop + input.clientHeight >= input.scrollHeight - 1
+
+  if ((event.deltaY < 0 && atTop) || (event.deltaY > 0 && atBottom)) {
+    event.preventDefault()
+  }
 }
 
 function handleSubmit() {
@@ -72,9 +101,24 @@ async function focusDraftInput() {
 
 onMounted(async () => {
   await chat.loadProviderDefaults()
+  resizeDraftInput()
+  window.addEventListener('resize', resizeDraftInput)
   await scrollToBottom()
   await focusDraftInput()
 })
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', resizeDraftInput)
+})
+
+watch(
+  () => draft.value,
+  async () => {
+    await nextTick()
+    resizeDraftInput()
+  },
+  { flush: 'post' },
+)
 
 watch(
   () => [
@@ -178,12 +222,13 @@ watch(
         <textarea
           ref="draftInputRef"
           v-model="draft"
-          class="field min-h-12 flex-1 resize-none rounded-md px-3 py-3 text-sm outline-none"
+          class="field draft-input min-h-12 flex-1 resize-none rounded-md px-3 py-3 text-sm outline-none"
           placeholder="继续当前主线..."
           rows="2"
           @compositionend="handleCompositionEnd"
           @compositionstart="handleCompositionStart"
           @keydown="handleTextareaKeydown"
+          @wheel="handleDraftWheel"
         />
         <button
           class="primary-button inline-flex size-12 shrink-0 items-center justify-center"

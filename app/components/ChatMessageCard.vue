@@ -16,7 +16,7 @@ const copied = ref(false)
 let copiedTimer: number | null = null
 
 function getCopyText() {
-  return [`用户：\n${props.node.userText}`, `助手：\n${props.node.assistantText}`].join('\n\n')
+  return `${props.node.assistantText}`
 }
 
 async function copyNode() {
