@@ -162,9 +162,10 @@ watch(
             <p class="whitespace-pre-wrap text-sm leading-6">{{ node.userText }}</p>
           </div>
           <div class="px-4 py-3">
-            <p class="whitespace-pre-wrap text-sm leading-6">
-              {{ node.assistantText }}
-            </p>
+            <MarkdownContent
+              :content="node.assistantText"
+              :streaming="isGenerating && node.id === activeNode?.id"
+            />
           </div>
         </article>
       </div>

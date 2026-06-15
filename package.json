@@ -19,6 +19,7 @@
     "@vue-flow/core": "^1.48.2",
     "ai": "^6.0.197",
     "lucide-vue-next": "^1.0.0",
+    "markdown-it": "^14.2.0",
     "nuxt": "^4.4.7",
     "pinia": "^3.0.4",
     "tailwindcss": "^4.3.0",
@@ -26,6 +27,7 @@
     "vue-router": "^5.1.0"
   },
   "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
     "@types/node": "^25.9.2",
     "prisma": "^7.8.0"
   }
